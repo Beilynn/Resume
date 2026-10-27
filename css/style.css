@@ -1,0 +1,607 @@
+/* ============================================================
+   Beilynn 交互式动态简历 · 样式层（整图即界面版）
+   ------------------------------------------------------------
+   设计语言（严格参照设计图）：
+   - 米白背景 + 红黑配色 + 黑色描边 + 硬阴影
+   - 整图即界面：设计图铺满作为唯一界面，图外不生成卡片与文字
+   - 图内四张票券卡片由透明热区承接交互：
+     悬停/预览切换状态图（交叉淡入 + 呼吸微动画），点击毛玻璃弹窗
+   ============================================================ */
+
+/* ---------- 1. 设计变量（稳重砖红 + 墨色 + 柔阴影，专业克制） ---------- */
+:root {
+  --bg: #f4eee4;              /* 米白背景 */
+  --paper: #fffdf9;           /* 弹窗纸白 */
+  --ink: #26241f;             /* 墨色 */
+  --ink-soft: #57534c;        /* 次级灰 */
+  --red: #a83a32;             /* 稳重砖红（主强调） */
+  --red-deep: #8c2f29;        /* 深砖红 */
+  --red-soft: #f6e9e6;        /* 浅红底（标签 / 徽章） */
+  --line: 1.5px solid #d8cdc2;/* 浅米色细边 */
+  --radius: 14px;             /* 圆角 */
+  --shadow: 0 6px 20px rgba(40, 34, 28, 0.10);        /* 柔和浅阴影 */
+  --shadow-deep: 0 14px 34px rgba(40, 34, 28, 0.16);  /* 加深阴影 */
+  --font-zh: "PingFang SC", "Microsoft YaHei", "Hiragino Sans GB", sans-serif;
+  --font-en: "Helvetica Neue", "Arial Narrow", Arial, sans-serif;
+}
+
+/* ---------- 2. 基础重置 ---------- */
+*,
+*::before,
+*::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  font-family: var(--font-zh);
+  background: var(--bg);
+  color: var(--ink);
+  line-height: 1.6;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+img { display: block; max-width: 100%; }
+a { color: inherit; }
+button { font-family: inherit; cursor: pointer; }
+
+body.no-scroll { overflow: hidden; } /* 弹窗打开时锁定滚动 */
+
+/* ---------- 3. 整图即界面：海报铺满 ---------- */
+.poster {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 18px;
+}
+
+/* 海报框：与素材 1672×940 同比例，随屏幕等比缩放（不裁切、热区始终对齐） */
+.poster-frame {
+  position: relative;
+  width: 100%;
+  max-width: min(calc(100vw - 36px), calc((100vh - 80px) * 1.778));
+  aspect-ratio: 1672 / 940;
+  border: var(--line);
+  border-radius: 16px;
+  box-shadow: var(--shadow-deep);
+  overflow: hidden;
+  background: #fff;
+}
+
+/* 主画面：铺满海报框 */
+.poster-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: fill;
+  opacity: 1;
+  transition: opacity 0.24s ease, filter 0.24s ease;
+}
+.poster-img.is-switching { opacity: 0; }
+
+/* 状态切换时的"呼吸"微动画 */
+.poster-frame.breathe { animation: breathe 0.45s ease; }
+@keyframes breathe {
+  0%   { transform: scale(1); }
+  50%  { transform: scale(1.012); }
+  100% { transform: scale(1); }
+}
+
+/* ---------- 4. 透明热区（对准图内四张票券卡片） ---------- */
+.hotspot-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+}
+.hotspot {
+  position: absolute;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  /* 防手机长按弹出系统菜单 */
+  -webkit-touch-callout: none;
+  user-select: none;
+  border-radius: 6px;
+  /* 透明热区不绘制任何可见边框或颜色，仅在悬停时切换人物状态图
+     作为视觉反馈；调试时可取消注释下面这行查看热区范围 */
+  /* background: rgba(255, 0, 0, 0.15); */
+}
+
+/* ---------- 5. 状态角标与视频按钮（叠在海报上） ---------- */
+.state-tag {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 6;
+  background: var(--red);
+  color: #fff;
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  padding: 5px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 999px;
+  box-shadow: 0 4px 12px rgba(168, 58, 50, 0.28);
+  opacity: 0;
+  transform: translateY(-6px);
+  transition: opacity 0.25s ease, transform 0.25s ease;
+  pointer-events: none;
+}
+.state-tag.show { opacity: 1; transform: translateY(0); }
+
+.video-btn {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  z-index: 6;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--paper);
+  border: var(--line);
+  border-radius: 999px;
+  padding: 7px 14px;
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  color: var(--ink);
+  box-shadow: var(--shadow);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  opacity: 0;
+  transform: translateY(8px);
+  pointer-events: none;
+}
+.video-btn.show { opacity: 1; transform: translateY(0); pointer-events: auto; }
+.video-btn:hover { transform: translateY(-2px); box-shadow: var(--shadow-deep); }
+.video-btn .dot {
+  width: 10px; height: 10px; border-radius: 50%;
+  background: var(--red);
+  animation: blink 1.6s infinite;
+}
+@keyframes blink { 0%,100% { opacity: 1; } 50% { opacity: .35; } }
+
+/* 移动端提示条（首次预览时短暂出现，属功能提示，非设计文字） */
+.touch-hint {
+  font-size: 12.5px;
+  color: var(--red);
+  letter-spacing: 1px;
+  opacity: 0;
+  transform: translateY(-4px);
+  transition: opacity 0.3s ease, transform 0.3s ease;
+  pointer-events: none;
+  text-align: center;
+}
+.touch-hint.show { opacity: 1; transform: translateY(0); }
+
+/* ---------- 6. 毛玻璃遮罩 + 详情弹窗 ---------- */
+.glass-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(23, 24, 26, 0.28);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.35s ease, visibility 0.35s ease;
+}
+.glass-overlay.open { opacity: 1; visibility: visible; }
+
+.modal {
+  position: relative;
+  width: min(760px, 100%);
+  max-height: 84vh;
+  overflow-y: auto;
+  background: var(--paper);
+  border: var(--line);
+  border-radius: 18px;
+  box-shadow: var(--shadow-deep);
+  transform: translateY(26px) scale(0.96);
+  transition: transform 0.38s cubic-bezier(0.2, 0.85, 0.25, 1.08);
+  overscroll-behavior: contain;
+}
+.glass-overlay.open .modal { transform: translateY(0) scale(1); }
+
+/* 弹窗头部：票券式编号 + 中英标题 + 红色饰条 */
+.modal-head {
+  position: relative;
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  padding: 24px 90px 20px 30px;
+  border-bottom: 1px solid var(--line);
+  background: linear-gradient(180deg, #fff 0%, #fbf5ee 100%);
+}
+.modal-head .num {
+  font-family: var(--font-en);
+  font-size: 38px;
+  font-weight: 700;
+  color: var(--red);
+  line-height: 1;
+}
+.modal-head .zh {
+  font-size: 21px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  color: var(--ink);
+}
+.modal-head .en {
+  font-family: var(--font-en);
+  font-size: 11.5px;
+  letter-spacing: 3px;
+  color: var(--ink-soft);
+  text-transform: uppercase;
+}
+.modal-head::after {
+  content: "";
+  position: absolute;
+  left: 30px; right: 30px; bottom: -1px;
+  height: 3px;
+  border-radius: 3px;
+  background: var(--red);
+}
+/* 弹窗右上角条形码装饰（避开右上角的关闭按钮） */
+.modal-barcode {
+  position: absolute;
+  right: 62px;
+  top: 28px;
+  width: 54px;
+  height: 24px;
+  opacity: 0.28;
+  background:
+    repeating-linear-gradient(90deg,
+      var(--ink) 0 2px,  transparent 2px 4px,
+      var(--ink) 4px 6px, transparent 6px 10px,
+      var(--ink) 10px 11px, transparent 11px 13px,
+      var(--ink) 13px 16px, transparent 16px 19px);
+}
+
+.modal-close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  z-index: 2;
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: #fff;
+  font-size: 18px;
+  line-height: 1;
+  color: var(--ink-soft);
+  box-shadow: var(--shadow);
+  transition: transform 0.18s ease, background-color 0.18s ease, color 0.18s ease;
+}
+.modal-close:hover { background: var(--red); color: #fff; transform: rotate(90deg); }
+
+.modal-body { padding: 28px 30px 36px; }
+/* 头部与正文内容之间保留呼吸间距（所有卡片类型通用） */
+.modal-body > * + * { margin-top: 26px; }
+
+/* ---------- 7. 弹窗内部通用组件 ---------- */
+/* 小节标题 */
+.blk-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  color: var(--ink);
+  margin: 22px 0 12px;
+}
+.blk-title::before {
+  content: "";
+  width: 8px; height: 8px;
+  border-radius: 3px;
+  background: var(--red);
+}
+.blk-title:first-child { margin-top: 0; }
+
+/* 01 个人介绍 */
+.profile-grid {
+  display: grid;
+  grid-template-columns: 170px 1fr;
+  gap: 26px;
+  align-items: start;
+}
+/* 立绘完整显示：按图片原始比例展示，不裁切、不变形 */
+.profile-avatar {
+  width: 170px;
+  border: var(--line);
+  border-radius: 16px;
+  box-shadow: var(--shadow);
+  overflow: hidden;
+  background: #fff;
+}
+.profile-avatar img { width: 100%; height: auto; display: block; }
+.basics {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 11px;
+}
+.basics li {
+  list-style: none;
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  font-size: 13.5px;
+  border-bottom: 1px dashed rgba(87, 83, 76, 0.28);
+  padding-bottom: 9px;
+}
+.basics .k { color: var(--ink-soft); white-space: nowrap; flex: 0 0 78px; }
+.basics .v { font-weight: 600; color: var(--ink); overflow-wrap: anywhere; }
+.basics .v a.v-link {
+  color: var(--red);
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+.basics .v a.v-link:hover { color: var(--red-deep); border-bottom-color: var(--red); }
+
+.edu-card {
+  margin-top: 20px;
+  border: var(--line);
+  border-radius: 14px;
+  background: #fffbf6;
+  padding: 16px 20px;
+  box-shadow: var(--shadow);
+}
+.edu-card .row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+  align-items: baseline;
+  font-size: 13.5px;
+  margin-bottom: 4px;
+}
+.edu-card .row b { font-size: 15.5px; color: var(--ink); }
+.edu-card .row .en { font-family: var(--font-en); color: var(--red); letter-spacing: 1.5px; }
+.edu-card .gpa-line { margin-top: 8px; font-size: 13px; color: var(--ink-soft); }
+.course-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.course-tags span {
+  font-size: 11.5px;
+  padding: 3px 11px;
+  border-radius: 999px;
+  background: var(--red-soft);
+  color: var(--red-deep);
+}
+.eval-text { font-size: 13.5px; line-height: 1.95; color: var(--ink-soft); }
+
+/* 02 校园经历 时间线 */
+.timeline { position: relative; padding-left: 28px; }
+.timeline::before {
+  content: "";
+  position: absolute;
+  left: 7px;
+  top: 6px;
+  bottom: 6px;
+  width: 2px;
+  background: #e3d8cd;
+}
+.tl-item { position: relative; margin-bottom: 22px; }
+.tl-item:last-child { margin-bottom: 0; }
+.tl-item::before {
+  content: "";
+  position: absolute;
+  left: -26px;
+  top: 6px;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: var(--red);
+  box-shadow: 0 0 0 3px var(--red-soft);
+}
+.tl-item .t {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--ink);
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.tl-item .p {
+  font-family: var(--font-en);
+  font-size: 11px;
+  letter-spacing: 1px;
+  color: var(--red-deep);
+  background: var(--red-soft);
+  border-radius: 999px;
+  padding: 2px 10px;
+}
+.tl-item .d { margin-top: 6px; font-size: 13.5px; line-height: 1.9; color: var(--ink-soft); }
+.tl-gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; margin-top: 18px; }
+.tl-gallery figure {
+  border: var(--line);
+  border-radius: 10px;
+  overflow: hidden;
+  background: #fff;
+}
+.tl-gallery img { width: 100%; aspect-ratio: 4/3; object-fit: cover; }
+
+/* 03 GitHub 项目 */
+.note-banner {
+  border: var(--line);
+  background: var(--red-soft);
+  color: var(--red-deep);
+  border-radius: var(--radius);
+  padding: 14px 18px;
+  font-size: 13.5px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  text-align: center;
+  box-shadow: var(--shadow);
+  margin-bottom: 16px;
+}
+.proj-card {
+  border: var(--line);
+  border-radius: 14px;
+  background: #fff;
+  padding: 16px 20px;
+  margin-bottom: 14px;
+  box-shadow: var(--shadow);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+@media (hover: hover) {
+  .proj-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-deep); }
+}
+.proj-card .top { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.proj-card .name { font-size: 15.5px; font-weight: 700; color: var(--ink); }
+.proj-card .status {
+  font-size: 11px;
+  color: var(--red-deep);
+  background: var(--red-soft);
+  border-radius: 999px;
+  padding: 2px 10px;
+  letter-spacing: 1px;
+}
+.proj-card .desc { margin: 8px 0 12px; font-size: 13.5px; color: var(--ink-soft); line-height: 1.85; }
+.proj-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+.proj-tags span {
+  font-family: var(--font-en);
+  font-size: 11px;
+  padding: 3px 10px;
+  border-radius: 6px;
+  background: #f3ede5;
+  color: var(--ink-soft);
+}
+.proj-link {
+  display: inline-block;
+  margin-top: 12px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--red);
+  text-decoration: none;
+  letter-spacing: 0.5px;
+  border-bottom: 1px solid var(--red);
+  padding-bottom: 1px;
+}
+.proj-link:hover { color: var(--red-deep); }
+.proj-link.is-placeholder { color: var(--ink-soft); border-color: var(--line); cursor: not-allowed; }
+
+/* 04 荣誉技能 */
+.skill-group { margin-bottom: 18px; }
+.skill-group h4 {
+  font-size: 13.5px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  color: var(--red-deep);
+  margin-bottom: 10px;
+}
+.skill-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.skill-chips span {
+  font-size: 12.5px;
+  padding: 5px 13px;
+  border-radius: 999px;
+  background: #f3ede5;
+  color: var(--ink);
+}
+.award-list { list-style: none; }
+.award-list li {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px dashed rgba(87, 83, 76, 0.28);
+  font-size: 13.5px;
+  color: var(--ink);
+}
+.award-list li::before {
+  content: "";
+  flex: 0 0 auto;
+  width: 7px; height: 7px;
+  background: var(--red);
+  border-radius: 2px;
+  transform: rotate(45deg);
+}
+.award-list .lv {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--red-deep);
+  background: var(--red-soft);
+  border-radius: 999px;
+  padding: 1px 9px;
+  white-space: nowrap;
+}
+
+/* ---------- 8. 视频灯箱 ---------- */
+.video-lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(23, 24, 26, 0.72);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.3s ease, visibility 0.3s ease;
+}
+.video-lightbox.open { opacity: 1; visibility: visible; }
+.video-lightbox video {
+  width: min(880px, 100%);
+  max-height: 78vh;
+  border: var(--line);
+  border-radius: 14px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+  background: #000;
+  transform: scale(0.96);
+  transition: transform 0.32s cubic-bezier(0.2, 0.85, 0.25, 1.08);
+}
+.video-lightbox.open video { transform: scale(1); }
+
+/* ---------- 9. 响应式 ---------- */
+/* 手机端：海报占满宽度，热区随图片等比缩放（自动保持对准） */
+@media (max-width: 620px) {
+  .poster { padding: 12px; gap: 8px; }
+  .poster-frame {
+    max-width: calc(100vw - 24px);
+    border-radius: 12px;
+    box-shadow: var(--shadow);
+  }
+  .state-tag { top: 6px; left: 6px; font-size: 11px; padding: 3px 10px; }
+  .video-btn { right: 8px; bottom: 8px; padding: 5px 10px; font-size: 11px; }
+  .touch-hint { font-size: 11.5px; }
+
+  /* 弹窗适配手机：底部抽屉式 */
+  .glass-overlay { padding: 12px; align-items: flex-end; }
+  .modal {
+    width: 100%;
+    max-height: 88vh;
+    border-radius: 16px 16px 0 0;
+    box-shadow: 0 -8px 30px rgba(40, 34, 28, 0.22);
+  }
+  .modal-head { padding: 18px 50px 16px 18px; }
+  .modal-head .num { font-size: 32px; }
+  .modal-head .zh { font-size: 18px; }
+  .modal-barcode { display: none; }
+  .modal-close { top: 10px; right: 10px; }
+  .modal-body { padding: 20px 20px 28px; }
+
+  .profile-grid { grid-template-columns: 1fr; }
+  .profile-avatar { max-width: 220px; margin: 0 auto; }
+  .basics { grid-template-columns: 1fr; }
+  .tl-item .t { font-size: 14.5px; }
+}
+
+/* ---------- 10. 无障碍：用户偏好减少动效时关闭动画 ---------- */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

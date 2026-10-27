@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<!-- ============================================================
+     ★ 素材替换指南（项目入口）★
+     ------------------------------------------------------------
+     一、界面方案
+     ------------------------------------------------------------
+     本网站采用「整图即界面」方案：设计图（img/简历封面.png）直接
+     铺满作为唯一界面，图内已画好四张票券卡片、个人介绍、爱好、
+     页脚等全部内容，页面不会在图片外再生成任何卡片或文字。
+     图内四张卡片对应四个透明「热区」：
+       - 桌面端：鼠标悬停热区 → 人物切换为对应状态图；移开恢复；
+                 点击热区 → 弹出对应详情。
+       - 移动端：单击热区 = 预览切图；再次点击或长按 = 打开详情。
+     热区位置在 data/resume-data.js 的 section.hotspot 中调整。
+
+     二、文件应该放在哪里？
+     ------------------------------------------------------------
+     博客创建/doubao/
+     ├── Beilynn简历.html    ← 本文件（入口，浏览器双击即可打开）
+     ├── css/style.css       ← 全部样式
+     ├── js/main.js          ← 全部交互逻辑
+     ├── data/resume-data.js ← ★ 文案 / 图片 / 视频 / 热区配置
+     └── img/                ← 图片素材目录（含素材副本，可自行替换）
+         ├── 简历封面.png    ← 主画面（整图即界面，建议 1672×940）
+         ├── 1.png ~ 4.png   ← 四张卡片对应的人物状态图
+         └── ip形象设计.png  ← 人物立绘（个人介绍弹窗头像）
+
+     三、想换内容时改哪里？
+     ------------------------------------------------------------
+     1. 换主画面       → 替换 img/简历封面.png
+     2. 换悬停状态图    → 替换 img/1.png ~ 4.png（顺序对应卡片 01~04）
+     3. 换人物动画视频  → 视频文件放入项目目录（如 video/xxx.mp4），
+                          在 data/resume-data.js 的 video.url 填路径或链接
+     4. 换简历文案 / 联系方式 / 项目 / 荣誉 → 全部在 data/resume-data.js
+                          的 sections 节点中修改，无需改动任何代码
+     5. 热区位置错位    → 修改 data/resume-data.js 中各 section.hotspot
+                          的 top / left / width / height（百分比）
+
+     四、注意
+     ------------------------------------------------------------
+     - 所有图片路径均为相对本入口文件的相对路径。
+     - 目录中另有旧版卡片式版本（_backup/），确认新版本无误后可删除。
+     - 移动端无需鼠标：单击=预览切图，再次点击或长按=查看详情。
+     ============================================================ -->
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Beilynn · 交互式动态个人简历">
+  <title>Beilynn / RESUME</title>
+  <!-- 内联 SVG 图标（红色 B 字圆标，无需图片资源） -->
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%2326241f'/%3E%3Ctext x='16' y='22' font-family='Arial' font-size='19' font-weight='bold' fill='%23a83a32' text-anchor='middle'%3EB%3C/text%3E%3C/svg%3E">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <!-- ================= 整图即界面：设计图铺满 + 透明热区 ================= -->
+  <main class="poster">
+    <div class="poster-frame" id="posterFrame">
+      <!-- 主画面（默认展示） -->
+      <img class="poster-img" id="stageImage" src="img/简历封面.png" alt="Beilynn 个人简历">
+      <!-- 四个透明热区（位置 / 尺寸由 js 按配置生成） -->
+      <div class="hotspot-layer" id="hotspotLayer" aria-label="简历板块热区"></div>
+      <!-- 当前状态角标（悬停 / 预览时显示，如 01 · 个人介绍） -->
+      <div class="state-tag" id="stateTag"></div>
+      <!-- 人物动画播放按钮（配置了视频链接才显示） -->
+      <button class="video-btn" id="videoBtn" type="button" hidden>
+        <span class="dot"></span><span id="videoBtnText">人物动画</span>
+      </button>
+    </div>
+    <!-- 移动端提示条（首次预览时短暂出现） -->
+    <p class="touch-hint" id="touchHint">再次点击卡片查看详情 · 长按也可</p>
+  </main>
+
+  <!-- ================= 详情弹窗：毛玻璃遮罩 + 票券卡片放大 ================= -->
+  <div class="glass-overlay" id="glassOverlay" role="dialog" aria-modal="true" aria-label="详情弹窗">
+    <div class="modal" id="detailModal">
+      <button class="modal-close" id="modalClose" type="button" aria-label="关闭">&times;</button>
+      <div class="modal-body" id="modalBody"></div>
+    </div>
+  </div>
+
+  <!-- ================= 视频灯箱（配置了 video.url 才使用） ================= -->
+  <div class="video-lightbox" id="videoLightbox" role="dialog" aria-modal="true" aria-label="人物动画视频">
+    <video id="videoEl" controls playsinline></video>
+  </div>
+
+  <!-- 数据配置（独立 JSON 对象，先于逻辑加载） -->
+  <script src="data/resume-data.js"></script>
+  <!-- 交互逻辑 -->
+  <script src="js/main.js"></script>
+</body>
+</html>
